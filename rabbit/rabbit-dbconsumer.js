@@ -17,10 +17,10 @@ var TaskBroker = function(){
 //   return connection.createChannel();
 // };
 
-TaskBroker.prototype.onChannelCreated= function (channel) {
-  this.rabbit.channel = channel;
-  return channel.assertQueue(this.queueName, {durable: true});
-};
+// TaskBroker.prototype.onChannelCreated= function (channel) {
+//   this.rabbit.channel = channel;
+//   return channel.assertQueue(this.queueName, {durable: true});
+// };
 
 TaskBroker.prototype.connectRabbit = function(){
     return amqp.connect('amqp://localhost:5672')
@@ -38,14 +38,12 @@ TaskBroker.prototype.connectRabbit = function(){
 
 TaskBroker.prototype.connectMongo = function(){
     return function(){
-        const client = new MongoClient("mongodb://localhost:27017/dockerApp", {useNewUrlParser:true});
-        client.connect(err=>{
-          this.mongo.db = client.db("dockerApp").collection("User");
-          client.close();
-
+        this.mongo.client = new MongoClient('mongodb://localhost:27017/dockerApp', {useNewUrlParser:true});
+        this.mongo.client.connect((err)=>{
+          const temp_db = this.mongo.client.db();
+          this.mongo.db = temp_db.collection('User');
         });
         
-                
         return this.mongo.db;
     }.bind(this);
 };
@@ -56,7 +54,7 @@ TaskBroker.prototype.connect = function(){
 };
 
 TaskBroker.prototype.disconnect = function(){
-    this.mongo.db.close();
+    this.mongo.client.close();
     this.rabbit.channel.close();
     this.rabbit.connection.close();
 };
@@ -64,13 +62,21 @@ TaskBroker.prototype.disconnect = function(){
 
 
 TaskBroker.prototype.getTask = function() {
-  this.mongo.db.find({}).toArray(function(err,result){
-    if(err) throw err;
-    this.rabbit.channel.sendToQueue(this.queueName,new Buffer(result), {deliveryMode:true});
-  });
-  console.log("Successfully took db object");
-    
+  return this.mongo.db.find({}).toArray()
+
 };
+
+TaskBroker.prototype.produceTask = function() {
+  return function(message) {
+    if(message != null) {
+      this.rabbit.channel.sendToQueue(this.queueName, new Buffer(JSON.stringify(message)), { deliveryMode: true });
+      console.log("Successfully took db object");
+      return message;
+    }
+    return null;
+  }.bind(this);
+};
+
 
 var taskBroker = new TaskBroker();
 
@@ -79,7 +85,19 @@ taskBroker.connect()
   .then(function() {
     setInterval(
       function() {
-      taskBroker.getTask()
+        taskBroker.getTask()
+          .then(taskBroker.produceTask())
+            .then(function(result){
+            if(result == null) {
+              console.log('No job to produce');
+            } else {
+              console.log('Produce', result);
+            }
+
+          },function(error){
+            console.log('error',error.stack);
+          }
+          );
       }
       ,1000
   );
