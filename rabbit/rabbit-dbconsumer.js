@@ -1,9 +1,10 @@
 var amqp = require('amqplib');
 const { fineStructureDependencies } = require('mathjs');
-var mongo = require('mongod');
-const { Collection } = require('mongoose');
+// var mongo = require('mongod');
+var mongoose = require('mongoose');
 var _ = require('underscore');
-const MongoClient = require('mongodb').MongoClient;
+// const MongoClient = require('mongodb').MongoClient;
+const User = require('./../models/user');
 
 
 var TaskBroker = function(){
@@ -12,15 +13,6 @@ var TaskBroker = function(){
     this.mongo= {};
 };
 
-// TaskBroker.prototype.onConnect= function (connection){
-//   this.rabbit.connection = connection;
-//   return connection.createChannel();
-// };
-
-// TaskBroker.prototype.onChannelCreated= function (channel) {
-//   this.rabbit.channel = channel;
-//   return channel.assertQueue(this.queueName, {durable: true});
-// };
 
 TaskBroker.prototype.connectRabbit = function(){
     return amqp.connect('amqp://localhost:5672')
@@ -38,14 +30,9 @@ TaskBroker.prototype.connectRabbit = function(){
 
 TaskBroker.prototype.connectMongo = function(){
     return function(){
-        this.mongo.client = new MongoClient('mongodb://localhost:27017/dockerApp', {useNewUrlParser:true});
-        this.mongo.client.connect((err)=>{
-          const temp_db = this.mongo.client.db();
-          this.mongo.db = temp_db.collection('User');
-        });
-        
-        return this.mongo.db;
-    }.bind(this);
+        mongoose.connect('mongodb://localhost:27017/dockerApp', {useNewUrlParser:true});
+        const db = mongoose.connection;
+        }
 };
 
 TaskBroker.prototype.connect = function(){
@@ -54,7 +41,7 @@ TaskBroker.prototype.connect = function(){
 };
 
 TaskBroker.prototype.disconnect = function(){
-    this.mongo.client.close();
+    this.db.close();
     this.rabbit.channel.close();
     this.rabbit.connection.close();
 };
@@ -62,7 +49,7 @@ TaskBroker.prototype.disconnect = function(){
 
 
 TaskBroker.prototype.getTask = function() {
-  return this.mongo.db.find({}).toArray()
+  return User.find();
 
 };
 
@@ -99,7 +86,7 @@ taskBroker.connect()
           }
           );
       }
-      ,1000
+      ,10000
   );
 });
     
