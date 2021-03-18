@@ -1,3 +1,7 @@
+//FOR TESTING REASONS
+
+
+
 const amqp = require('amqplib');
 var coordinates = {"langtitude": process.argv[2], "longtitude": process.argv[3], "speed": process.argv[4], "time": process.argv[5]}
 let channel = null;
@@ -15,17 +19,6 @@ async function connect(){
         console.log(ex);
     }
 }
-
-
-// function publishToQueue(queueName, data) {
-//     channel.sendToQueue(queueName, Buffer.from(JSON.stringify(data)));
-
-// }
-
-// process.on('exit', (code) => {
-//     channel.close();
-//     console.log('Closing rabbitmq channel');
-// });
 
 
 
